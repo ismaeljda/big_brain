@@ -112,16 +112,16 @@ class ObsidianGenerator:
 
         content = f"""# {result['title']}
 
-    **URL**: {result['url']}  
-    **Type**: Learning 🎓  
-    **Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]  
-    **Chaîne**: {result.get('channel', 'Unknown')}  
-    **Date d'ajout**: {result['processed_at'][:10]}  
-    **Dernière révision**: {result['processed_at'][:10]}  
+**URL**: {result['url']}  
+**Type**: Learning 🎓  
+**Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]  
+**Chaîne**: {result.get('channel', 'Unknown')}  
+**Date d'ajout**: {result['processed_at'][:10]}  
+**Dernière révision**: {result['processed_at'][:10]}  
 
-    ---
+---
 
-    ## Résumé Détaillé
+## Résumé Détaillé
 
     {result.get('summary', 'Aucun résumé disponible')}
     """
@@ -169,15 +169,15 @@ class ObsidianGenerator:
 
         content = f"""# {result['title']}
 
-    **URL**: {result['url']}  
-    **Type**: Knowledge 📰  
-    **Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]  
-    **Chaîne**: {result.get('channel', 'Unknown')}  
-    **Date d'ajout**: {result['processed_at'][:10]}  
+**URL**: {result['url']}  
+**Type**: Knowledge 📰  
+**Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]  
+**Chaîne**: {result.get('channel', 'Unknown')}  
+**Date d'ajout**: {result['processed_at'][:10]}  
 
-    ---
+---
 
-    ## Résumé
+## Résumé
 
     {result.get('summary', 'Aucun résumé disponible')}
     """

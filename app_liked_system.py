@@ -17,7 +17,6 @@ youtube_system = YouTubeLikedSystem()
 # Template HTML simple pour la page de staging
 STAGING_TEMPLATE = '''
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html>
 <head>
     <title>YouTube Liked Videos - Staging</title>
@@ -33,6 +32,7 @@ STAGING_TEMPLATE = '''
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             display: flex;
             gap: 20px;
+            transition: opacity 0.3s ease;
         }
         .video-info { flex: 1; }
         .video-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
@@ -57,11 +57,38 @@ STAGING_TEMPLATE = '''
             margin-left: 10px;
             font-size: 14px;
         }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background: #2196F3; color: white; }
         .btn-secondary { background: #757575; color: white; }
         .btn-danger { background: #f44336; color: white; }
         .stats { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         .thumbnail { width: 120px; height: 90px; border-radius: 4px; object-fit: cover; }
+        
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        .notification.success { background: #4CAF50; }
+        .notification.info { background: #2196F3; }
+        .notification.error { background: #f44336; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -115,6 +142,7 @@ STAGING_TEMPLATE = '''
                 <div class="actions">
                     <button class="btn btn-secondary" onclick="previewVideo('{{ video.url }}')">👁️ Preview</button>
                     <button class="btn btn-primary" onclick="processVideo('{{ video.video_id }}')">✅ Process</button>
+                    <button class="btn btn-danger" onclick="skipVideo('{{ video.video_id }}')">⏭️ Skip</button>
                 </div>
             </div>
         </div>
@@ -141,8 +169,6 @@ STAGING_TEMPLATE = '''
             if (selectedOption) selectedOption.classList.add('selected');
         }
 
-        // Dans le template STAGING_TEMPLATE, remplacer les fonctions JavaScript :
-
         function processVideo(videoId) {
             const category = selectedCategories[videoId];
             if (!category) {
@@ -152,6 +178,7 @@ STAGING_TEMPLATE = '''
 
             // Désactiver le bouton pendant le traitement
             const processBtn = event.target;
+            const originalText = processBtn.textContent;
             processBtn.disabled = true;
             processBtn.textContent = "🔄 Traitement...";
 
@@ -177,7 +204,7 @@ STAGING_TEMPLATE = '''
                     // Vérifier s'il reste des vidéos
                     setTimeout(() => {
                         const remainingCards = document.querySelectorAll('.video-card');
-                        if (remainingCards.length <= 1) { // 1 car il peut rester la carte "aucune vidéo"
+                        if (remainingCards.length <= 1) {
                             location.reload();
                         }
                     }, 500);
@@ -185,7 +212,7 @@ STAGING_TEMPLATE = '''
                     alert("❌ Erreur: " + data.error);
                     // Réactiver le bouton en cas d'erreur
                     processBtn.disabled = false;
-                    processBtn.textContent = "✅ Process";
+                    processBtn.textContent = originalText;
                 }
             })
             .catch(err => {
@@ -193,7 +220,7 @@ STAGING_TEMPLATE = '''
                 alert("❌ Problème lors de l'appel au serveur.");
                 // Réactiver le bouton en cas d'erreur
                 processBtn.disabled = false;
-                processBtn.textContent = "✅ Process";
+                processBtn.textContent = originalText;
             });
         }
 
@@ -253,18 +280,7 @@ STAGING_TEMPLATE = '''
         function showNotification(message, type) {
             // Créer une notification temporaire
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 25px;
-                border-radius: 8px;
-                color: white;
-                font-weight: bold;
-                z-index: 1000;
-                animation: slideIn 0.3s ease;
-                background: ${type === 'success' ? '#4CAF50' : type === 'info' ? '#2196F3' : '#f44336'};
-            `;
+            notification.className = `notification ${type}`;
             notification.textContent = message;
             
             document.body.appendChild(notification);
@@ -274,26 +290,6 @@ STAGING_TEMPLATE = '''
                 notification.style.animation = 'slideOut 0.3s ease';
                 setTimeout(() => notification.remove(), 300);
             }, 3000);
-        }
-
-            fetch('/process-video', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ video_id: videoId, category: category })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert("✅ Vidéo traitée avec succès !");
-                    location.reload();
-                } else {
-                    alert("❌ Erreur: " + data.error);
-                }
-            })
-            .catch(err => {
-                console.error("Erreur fetch:", err);
-                alert("❌ Problème lors de l'appel au serveur.");
-            });
         }
 
         function previewVideo(url) {
