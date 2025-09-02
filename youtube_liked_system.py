@@ -597,3 +597,33 @@ Sois concis, factuel et orienté information utile."""
             'authenticated': self.is_authenticated(),
             'categories': list(self.categories.keys())
         }
+    def unlike_video(self, video_id: str) -> bool:
+        """
+        Supprime le like d'une vidéo YouTube
+        
+        Args:
+            video_id: L'ID de la vidéo à unliker
+        Returns:
+            bool: True si succès, False sinon
+        """
+        if not self.is_authenticated():
+            print("❌ Authentification requise pour unliker")
+            return False
+        
+        try:
+            # Utiliser l'API YouTube pour supprimer le rating
+            request = self.youtube_service.videos().rate(
+                id=video_id,
+                rating="none"  # Supprimer le like
+            )
+            request.execute()
+            
+            print(f"✅ Vidéo {video_id} unlikée avec succès")
+            return True
+            
+        except HttpError as e:
+            print(f"❌ Erreur lors du unlike de {video_id}: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Erreur inattendue lors du unlike: {e}")
+            return False

@@ -141,12 +141,140 @@ STAGING_TEMPLATE = '''
             if (selectedOption) selectedOption.classList.add('selected');
         }
 
+        // Dans le template STAGING_TEMPLATE, remplacer les fonctions JavaScript :
+
         function processVideo(videoId) {
             const category = selectedCategories[videoId];
             if (!category) {
                 alert("⚠️ Sélectionnez une catégorie d'abord !");
                 return;
             }
+
+            // Désactiver le bouton pendant le traitement
+            const processBtn = event.target;
+            processBtn.disabled = true;
+            processBtn.textContent = "🔄 Traitement...";
+
+            fetch('/process-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_id: videoId, category: category })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Supprimer la carte vidéo de l'affichage
+                    const videoCard = document.querySelector(`[data-video-id="${videoId}"]`);
+                    if (videoCard) {
+                        videoCard.style.transition = 'opacity 0.3s ease';
+                        videoCard.style.opacity = '0';
+                        setTimeout(() => videoCard.remove(), 300);
+                    }
+                    
+                    // Notification de succès
+                    showNotification("✅ Vidéo traitée avec succès !", "success");
+                    
+                    // Vérifier s'il reste des vidéos
+                    setTimeout(() => {
+                        const remainingCards = document.querySelectorAll('.video-card');
+                        if (remainingCards.length <= 1) { // 1 car il peut rester la carte "aucune vidéo"
+                            location.reload();
+                        }
+                    }, 500);
+                } else {
+                    alert("❌ Erreur: " + data.error);
+                    // Réactiver le bouton en cas d'erreur
+                    processBtn.disabled = false;
+                    processBtn.textContent = "✅ Process";
+                }
+            })
+            .catch(err => {
+                console.error("Erreur fetch:", err);
+                alert("❌ Problème lors de l'appel au serveur.");
+                // Réactiver le bouton en cas d'erreur
+                processBtn.disabled = false;
+                processBtn.textContent = "✅ Process";
+            });
+        }
+
+        function skipVideo(videoId) {
+            if (!confirm("Êtes-vous sûr de vouloir ignorer cette vidéo ?")) return;
+
+            // Désactiver visuellement la carte
+            const videoCard = document.querySelector(`[data-video-id="${videoId}"]`);
+            if (videoCard) {
+                videoCard.style.opacity = '0.5';
+                videoCard.style.pointerEvents = 'none';
+            }
+
+            fetch('/process-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_id: videoId, category: 'skip' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Supprimer la carte vidéo de l'affichage
+                    if (videoCard) {
+                        videoCard.style.transition = 'opacity 0.3s ease';
+                        videoCard.style.opacity = '0';
+                        setTimeout(() => videoCard.remove(), 300);
+                    }
+                    
+                    showNotification("⏭️ Vidéo ignorée", "info");
+                    
+                    // Vérifier s'il reste des vidéos
+                    setTimeout(() => {
+                        const remainingCards = document.querySelectorAll('.video-card');
+                        if (remainingCards.length <= 1) {
+                            location.reload();
+                        }
+                    }, 500);
+                } else {
+                    alert("❌ Erreur: " + data.error);
+                    // Réactiver la carte en cas d'erreur
+                    if (videoCard) {
+                        videoCard.style.opacity = '1';
+                        videoCard.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Erreur skip:", err);
+                alert("❌ Problème lors du skip.");
+                if (videoCard) {
+                    videoCard.style.opacity = '1';
+                    videoCard.style.pointerEvents = 'auto';
+                }
+            });
+        }
+
+        function showNotification(message, type) {
+            // Créer une notification temporaire
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                background: ${type === 'success' ? '#4CAF50' : type === 'info' ? '#2196F3' : '#f44336'};
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Supprimer après 3 secondes
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
 
             fetch('/process-video', {
                 method: 'POST',
@@ -287,6 +415,8 @@ def process_video():
         video_id = data.get('video_id')
         category = data.get('category')
         
+        print(f"🔍 Debug process_video - video_id: {video_id}, category: {category}")
+        
         if not video_id or not category:
             return jsonify({"success": False, "error": "Données manquantes"}), 400
         
@@ -307,28 +437,46 @@ def process_video():
         
         # 4. Traitement avec Gemini
         result = youtube_system.process_video_with_gemini(video_data, category)
+        print(f"🔍 Debug result from Gemini: {list(result.keys()) if result else 'None'}")
+        
         if not result:
             return jsonify({"success": False, "error": "Erreur lors du traitement Gemini"}), 500
         
-        # 5. Génération et sauvegarde de la note Obsidian
+        # 5. IMPORTANT: S'assurer que la catégorie est dans le résultat AVANT save_note
+        if 'category' not in result:
+            result['category'] = category
+            print(f"🔍 Debug: Ajout de category={category} au résultat")
+        
+        # 6. Génération et sauvegarde de la note Obsidian
         obsidian_generator = ObsidianGenerator(os.getenv('OBSIDIAN_VAULT_PATH'))
         try:
-            # S'assurer que la catégorie est dans le résultat
-            result['category'] = category
-            # Sauvegarder directement sans générer la note séparément
+            print(f"🔍 Debug avant save_note: result contient {list(result.keys())}")
             obsidian_note_path = obsidian_generator.save_note(result)
         except Exception as e:
-            print(f"❌ Erreur Obsidian: {str(e)}")
+            print(f"❌ Erreur Obsidian détaillée: {str(e)}")
+            import traceback
+            print(f"❌ Traceback Obsidian: {traceback.format_exc()}")
             return jsonify({"success": False, "error": f"Erreur Obsidian: {str(e)}"}), 500
         
-        # 6. Marquer comme traitée et mettre à jour le staging
+        # 7. Marquer comme traitée et mettre à jour le staging
         youtube_system.mark_as_processed(video_id, category, result)
         
-        # 7. Retirer du staging
+        # 8. NOUVEAU: Supprimer le like YouTube si traitement réussi (optionnel)
+        try:
+            if category != 'skip':  # Ne pas unliker si c'est un skip
+                unlike_success = youtube_system.unlike_video(video_id)
+                if unlike_success:
+                    print(f"✅ Like supprimé de YouTube pour {video_id}")
+                else:
+                    print(f"⚠️ Impossible de supprimer le like YouTube pour {video_id}")
+        except Exception as unlike_error:
+            print(f"⚠️ Erreur unlike (non bloquant): {unlike_error}")
+        
+        # 9. Retirer du staging
         updated_videos = [v for v in staging_videos if v['video_id'] != video_id]
         youtube_system.save_to_staging(updated_videos)
         
-        # 8. Retourner le résultat
+        # 10. Retourner le résultat
         return jsonify({
             "success": True, 
             "message": "Vidéo traitée avec succès",
@@ -338,7 +486,9 @@ def process_video():
         })
         
     except Exception as e:
-        print(f"❌ Erreur processing: {str(e)}")
+        print(f"❌ Erreur processing générale: {str(e)}")
+        import traceback
+        print(f"❌ Traceback complet: {traceback.format_exc()}")
         return jsonify({
             "success": False, 
             "error": str(e),

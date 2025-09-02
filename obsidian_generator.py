@@ -5,6 +5,27 @@ import re
 from pathlib import Path
 from typing import Dict, List
 from datetime import datetime
+import unicodedata
+
+def clean_tag(text: str) -> str:
+    """Nettoie un texte pour en faire un tag valide sans accents"""
+    if not text:
+        return ""
+    
+    # Supprimer les accents
+    text = unicodedata.normalize('NFD', text)
+    text = ''.join(char for char in text if unicodedata.category(char) != 'Mn')
+    
+    # Convertir en minuscules
+    text = text.lower()
+    
+    # Remplacer les espaces et caractères spéciaux par des tirets
+    text = re.sub(r'[^a-zA-Z0-9]', '-', text)
+    
+    # Supprimer les tirets multiples et en début/fin
+    text = re.sub(r'-+', '-', text).strip('-')
+    
+    return text
 
 class ObsidianGenerator:
     def __init__(self, obsidian_vault_path: str):
@@ -85,102 +106,112 @@ class ObsidianGenerator:
             return self._generate_knowledge_note(result, category_info)
     
     def _generate_learning_note(self, result: Dict, category_info: Dict) -> str:
-        """Génère une note de type Learning"""
+        """Génère une note de type Learning avec formatage amélioré"""
+        # Extraire la catégorie depuis result
+        category = result.get("category", "")
+
         content = f"""# {result['title']}
 
-## Métadonnées
-- **URL**: {result['url']}
-- **Type**: Learning 🎓
-- **Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]
-- **Chaîne**: {result.get('channel', 'Unknown')}
-- **Date d'ajout**: {result['processed_at'][:10]}
-- **Dernière révision**: {result['processed_at'][:10]}
+    **URL**: {result['url']}  
+    **Type**: Learning 🎓  
+    **Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]  
+    **Chaîne**: {result.get('channel', 'Unknown')}  
+    **Date d'ajout**: {result['processed_at'][:10]}  
+    **Dernière révision**: {result['processed_at'][:10]}  
 
----
+    ---
 
-## Résumé Détaillé
-{result.get('summary', 'Aucun résumé disponible')}
-"""
-        
+    ## Résumé Détaillé
+
+    {result.get('summary', 'Aucun résumé disponible')}
+    """
+
         # Concepts clés
-        concepts = result.get('concepts', [])
+        concepts = result.get("concepts", [])
         if concepts:
-            content += "\n## Concepts Clés\n"
+            content += "\n## Concepts Clés\n\n"
             for concept in concepts:
                 if isinstance(concept, dict):
-                    name = concept.get('name', '')
-                    definition = concept.get('definition', '')
+                    name = concept.get("name", "")
+                    definition = concept.get("definition", "")
                     content += f"- **{name}** - {definition}\n"
                 else:
                     content += f"- **{concept}**\n"
-        
+
         # Applications pratiques
-        applications = result.get('applications', '')
+        applications = result.get("applications", "")
         if applications:
-            content += f"\n## Applications Pratiques\n{applications}\n"
-        
-        content += "\n## Notes Connectées\n<!-- Auto-générées -->\n\n---"
-        
-        # Tags
-        content += f"\n*Tags: #video #learning #{category.replace('_', '-')}"
-        
+            content += f"\n## Applications Pratiques\n\n{applications}\n"
+
+        content += "\n## Notes Connectées\n\n<!-- Auto-générées -->\n\n---"
+
+        # Tags - avec nettoyage des accents
+        clean_category = clean_tag(category)
+        content += f"\n*Tags: #video #learning #{clean_category}"
+
         # Mots-clés comme tags
-        keywords = result.get('keywords', [])
+        keywords = result.get("keywords", [])
         for keyword in keywords:
             if isinstance(keyword, str):
-                clean_keyword = re.sub(r'[^a-zA-Z0-9]', '-', keyword.lower()).strip('-')
+                clean_keyword = clean_tag(keyword)
                 if clean_keyword:
                     content += f" #{clean_keyword}"
-        
+
         content += "*"
-        
+
         return content
-    
+
+
     def _generate_knowledge_note(self, result: Dict, category_info: Dict) -> str:
-        """Génère une note de type Knowledge"""
+        """Génère une note de type Knowledge avec formatage amélioré"""
+        # Extraire la catégorie depuis result
+        category = result.get("category", "")
+
         content = f"""# {result['title']}
 
-## Métadonnées
-- **URL**: {result['url']}
-- **Type**: Knowledge 📰
-- **Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]
-- **Chaîne**: {result.get('channel', 'Unknown')}
-- **Date d'ajout**: {result['processed_at'][:10]}
+    **URL**: {result['url']}  
+    **Type**: Knowledge 📰  
+    **Domaine**: [[{category_info.get('moc', 'Unknown MOC')}]]  
+    **Chaîne**: {result.get('channel', 'Unknown')}  
+    **Date d'ajout**: {result['processed_at'][:10]}  
 
----
+    ---
 
-## Résumé
-{result.get('summary', 'Aucun résumé disponible')}
-"""
-        
+    ## Résumé
+
+    {result.get('summary', 'Aucun résumé disponible')}
+    """
+
         # Points clés
-        key_points = result.get('key_points', [])
+        key_points = result.get("key_points", [])
         if key_points:
-            content += "\n## Points Clés\n"
+            content += "\n## Points Clés\n\n"
             for point in key_points:
                 content += f"- {point}\n"
-        
+
         # À retenir
-        key_takeaway = result.get('key_takeaway', '')
+        key_takeaway = result.get("key_takeaway", "")
         if key_takeaway:
-            content += f"\n## À Retenir\n{key_takeaway}\n"
-        
-        content += "\n## Notes Connectées\n<!-- Auto-générées -->\n\n---"
-        
-        # Tags
-        content += f"\n*Tags: #video #knowledge #{category.replace('_', '-')}"
-        
+            content += f"\n## À Retenir\n\n{key_takeaway}\n"
+
+        content += "\n## Notes Connectées\n\n<!-- Auto-générées -->\n\n---"
+
+        # Tags - avec nettoyage des accents
+        clean_category = clean_tag(category)
+        content += f"\n*Tags: #video #knowledge #{clean_category}"
+
         # Mots-clés comme tags
-        keywords = result.get('keywords', [])
+        keywords = result.get("keywords", [])
         for keyword in keywords:
             if isinstance(keyword, str):
-                clean_keyword = re.sub(r'[^a-zA-Z0-9]', '-', keyword.lower()).strip('-')
+                clean_keyword = clean_tag(keyword)
                 if clean_keyword:
                     content += f" #{clean_keyword}"
-        
+
         content += "*"
-        
+
         return content
+
     
     def save_note(self, result: Dict) -> str:
         """
@@ -192,10 +223,15 @@ class ObsidianGenerator:
             str: Chemin de la note créée
         """
         try:
+            # Debug: afficher le contenu de result
+            print(f"🔍 Debug result: {list(result.keys())}")
+            
             # Extraire la catégorie du résultat
             category = result.get('category')
+            print(f"🔍 Debug category extracted: {category}")
+            
             if not category or category not in self.categories:
-                raise ValueError(f"Catégorie invalide: {category}")
+                raise ValueError(f"Catégorie invalide: {category}. Disponibles: {list(self.categories.keys())}")
 
             # Récupérer les infos de la catégorie
             category_info = self.categories[category]
@@ -219,59 +255,18 @@ class ObsidianGenerator:
             # Sauvegarder la note
             note_path.write_text(note_content, encoding='utf-8')
 
-            # Mettre à jour le MOC correspondant
-            self._update_moc(category)
+            # CORRECTION: Ne plus appeler _update_moc car elle n'existe pas vraiment
+            # Les MOCs se mettent à jour automatiquement via Dataview
+            print(f"ℹ️ Note sauvegardée, MOC se met à jour automatiquement via Dataview")
 
+            print(f"✅ Note sauvegardée: {note_path}")
             return str(note_path)
 
         except Exception as e:
             print(f"❌ Erreur lors de la sauvegarde de la note: {str(e)}")
+            import traceback
+            print(f"❌ Traceback complet: {traceback.format_exc()}")
             raise
-    
-    def _update_moc(self, category: str):
-        """Met à jour le MOC correspondant à la catégorie (optionnel)"""
-        try:
-            category_info = self.categories.get(category, {})
-            moc_name = category_info.get('moc', 'Unknown MOC')
-            moc_file = self.mocs_folder / f"{moc_name}.md"
-            
-            # Juste vérifier si le MOC existe, ne pas le créer automatiquement
-            if moc_file.exists():
-                print(f"✅ MOC trouvé: {moc_name}")
-            else:
-                print(f"ℹ️ MOC non trouvé: {moc_name} (OK si structure manuelle)")
-            
-            # Le MOC utilise Dataview donc se met à jour automatiquement
-            
-        except Exception as e:
-            print(f"❌ Erreur vérification MOC: {e}")
-    
-    def _create_moc(self, category: str, moc_name: str):
-        """Fonction désactivée - structure gérée manuellement"""
-        print(f"ℹ️ Création MOC ignorée: {moc_name} (structure manuelle)")
-    
-    def bulk_generate_from_processed_data(self, processed_file_path: str) -> int:
-        """Génère toutes les notes depuis un fichier de données processed"""
-        try:
-            with open(processed_file_path, 'r', encoding='utf-8') as f:
-                processed_data = json.load(f)
-            
-            generated_count = 0
-            
-            for video_entry in processed_data.get('processed_videos', []):
-                if video_entry.get('category') != 'skipped':
-                    result = video_entry.get('result', {})
-                    if result:
-                        file_path = self.save_note(result)
-                        if file_path:
-                            generated_count += 1
-            
-            print(f"✅ {generated_count} notes générées dans Obsidian")
-            return generated_count
-            
-        except Exception as e:
-            print(f"❌ Erreur génération bulk: {e}")
-            return 0
     
     def get_stats(self) -> Dict:
         """Retourne des statistiques sur les notes générées"""
